@@ -1,0 +1,33 @@
+# Dependency directories
+node_modules
+
+# Production build output
+dist
+
+# Git and version control
+.git
+.gitignore
+
+# Docker files (optional)
+Dockerfile
+.dockerignore
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+
+# Editor/IDE configs
+.vscode
+.idea
+*.swp
+
+# OS-specific
+.DS_Store
+Thumbs.db
