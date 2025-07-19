@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-my-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: react-my-app
+  template:
+    metadata:
+      labels:
+        app: react-my-app
+    spec:
+      containers:
+      - name: react-my-app
+        image: react-exam:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+
