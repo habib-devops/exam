@@ -1,0 +1,7 @@
+version: '3.8'
+services:
+  web:
+    image: habib356/dipti-exam:latest
+    ports:
+      - "9097:80"
+    restart: always
