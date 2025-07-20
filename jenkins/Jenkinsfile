@@ -1,0 +1,116 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds') // Replace with your actual ID
+        IMAGE_NAME = 'habib356/dipti-exam'
+        APP_PATH = '/var/www/app'
+    }
+
+    triggers {
+        // This is optional if you use GitHub webhook
+        pollSCM('H/5 * * * *') 
+    }
+
+    stages {
+        stage('Validate Branch') {
+            when {
+                expression {
+                    return env.GIT_BRANCH ==~ /origin\/main/
+                }
+            }
+            steps {
+                echo "Branch validated: ${env.GIT_BRANCH}"
+            }
+        }
+
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Generate Image Tag') {
+            steps {
+                script {
+                    def now = new Date().format("dd-MM-HH-mm", TimeZone.getTimeZone('Asia/Dhaka'))
+                    env.IMAGE_TAG = "${BUILD_NUMBER}-${now}"
+                    echo "Generated tag: ${env.IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                }
+            }
+        }
+
+        stage('Push to DockerHub') {
+            steps {
+                script {
+                    sh """
+                    echo "${DOCKERHUB_CREDENTIALS_PSW}" | docker login -u "${DOCKERHUB_CREDENTIALS_USR}" --password-stdin
+                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                    docker logout
+                    """
+                }
+            }
+        }
+
+        stage('Update docker-compose.yaml') {
+            steps {
+                script {
+                    sh """
+                    cd ${APP_PATH}
+                    sed -i 's|image: ${IMAGE_NAME}:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' docker-compose.yaml
+                    docker compose down
+                    docker compose up -d
+                    """
+                }
+            }
+        }
+
+        stage('Google Chat Notification') {
+            steps {
+                script {
+                    def msg = """{
+                      "text": "✅ Your application has been updated\\nImage: ${IMAGE_NAME}:${IMAGE_TAG}"
+                    }"""
+                    sh """
+                    curl -X POST -H 'Content-Type: application/json' \
+                    -d '${msg}' \
+                    https://chat.googleapis.com/v1/spaces/AAQASwaiEbI/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=wSkrf2yLOAh-sPJm39J0NkUOjct6oK02FZr7OCXKyGQ
+                    """
+                }
+            }
+        }
+
+        stage('Push Updated Compose to Git Repo') {
+            steps {
+                script {
+                    sh """
+                    cd ${APP_PATH}
+                    git config user.name "jenkins-bot"
+                    git config user.email "jenkins@example.com"
+                    git add docker-compose.yaml
+                    git commit -m "Update docker image tag to ${IMAGE_TAG}"
+                    git push origin main
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        failure {
+            echo '❌ Pipeline failed!'
+        }
+    }
+}
+
